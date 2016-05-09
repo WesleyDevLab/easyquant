@@ -1,30 +1,18 @@
 import datetime
 from datetime import timedelta
-from functools import wraps
+from functools import lru_cache
 
 import requests
 
 import time
 
 
-def memcache(func):
-    cache = {}
-
-    @wraps(func)
-    def wrap(*args):
-        if args not in cache:
-            cache[args] = func(args)
-        return cache[args]
-
-    return wrap
-
-
-@memcache
+@lru_cache()
 def is_holiday(day):
     api = 'http://www.easybots.cn/api/holiday.php'
     params = {'d': day}
     rep = requests.get(api, params)
-    res = rep.json()[day]
+    res = rep.json()[day if isinstance(day, str) else day[0]]
     return True if res == "1" else False
 
 
@@ -37,6 +25,48 @@ def is_tradetime_now():
     now_time = time.localtime()
     now = (now_time.tm_hour, now_time.tm_min, now_time.tm_sec)
     if (9, 15, 0) <= now <= (11, 30, 0) or (13, 0, 0) <= now <= (15, 0, 0):
+        return True
+    return False
+
+
+open_time = (
+    (datetime.time(9, 15, 0), datetime.time(11, 30, 0)),
+    (datetime.time(13, 0, 0), datetime.time(15, 0, 0)),
+)
+
+
+def is_tradetime(now_time):
+    """
+    :param now_time: datetime.time()
+    :return:
+    """
+    for begin, end in open_time:
+        if begin <= now_time < end:
+            return True
+    else:
+        return False
+
+
+def is_pause_now():
+    now_time = time.localtime()
+    now = (now_time.tm_hour, now_time.tm_min, now_time.tm_sec)
+    if (11, 30, 0) <= now < (12, 59, 30):
+        return True
+    return False
+
+
+def is_trade_now():
+    now_time = time.localtime()
+    now = (now_time.tm_hour, now_time.tm_min, now_time.tm_sec)
+    if (12, 59, 30) <= now < (13, 0, 0):
+        return True
+    return False
+
+
+def is_late_day_now(start=(14, 54, 30)):
+    now_time = time.localtime()
+    now = (now_time.tm_hour, now_time.tm_min, now_time.tm_sec)
+    if start <= now < (15, 0, 0):
         return True
     return False
 
